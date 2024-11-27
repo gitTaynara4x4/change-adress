@@ -1,206 +1,104 @@
+from flask import Flask, request, jsonify
 import requests
+import os
+from dotenv import load_dotenv
 import time
-import random
-from flask import Flask, jsonify, request
-import logging
-from functools import lru_cache
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
 
+# Load environment variables
+load_dotenv()
+CODIGO_BITRIX = os.getenv('CODIGO_BITRIX')
+CODIGO_BITRIX_STR = os.getenv('CODIGO_BITRIX_STR')
+PROFILE = os.getenv('PROFILE')
+BASE_URL_API_BITRIX = os.getenv('BASE_URL_API_BITRIX')
 
-WEBHOOK_URL = "https://marketingsolucoes.bitrix24.com.br/rest/35002/7a2nuej815yjx5bg/"
+# Define the webhook URL
+BITRIX_WEBHOOK_URL = f"{BASE_URL_API_BITRIX}/{PROFILE}/{CODIGO_BITRIX}/bizproc.workflow.start"
 
-
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.INFO  
-)
-
-
-@lru_cache(maxsize=100)
-def get_city_and_uf(cep):
-    logging.info(f"Consultando o CEP: {cep}")
-    cep = cep.strip().replace("-", "")  
-
-    
-    apis = [
-        {"nome": "ViaCEP", "url": f"https://viacep.com.br/ws/{cep}/json/", "funcao": via_cep},
-        {"nome": "OpenCEP", "url": f"https://opencep.com.br/api/cep/{cep}", "funcao": open_cep},
-        {"nome": "BrasilAPI", "url": f"https://brasilapi.com.br/api/cep/v2/{cep}", "funcao": brasil_api}
-    ]
-
-    
-    random.shuffle(apis)
-
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(api["funcao"], cep) for api in apis]
-        for future in as_completed(futures):
-            try:
-                cidade, rua, bairro, uf = future.result()
-                if cidade and uf:  
-                    logging.info(f"Consulta bem-sucedida com os dados: Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-                    
-                    return cidade, rua, bairro, uf
-            except Exception as e:
-                logging.error(f"Erro ao processar a consulta: {e}")
-
-    
-    logging.error(f"Erro ao consultar o CEP nas APIs.")
-    return None, None, None, None
-
-
-def via_cep(cep):
-    response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
-    if response.status_code == 200 and "erro" not in response.json():
-        data = response.json()
-        cidade = data.get("localidade", "")
-        rua = data.get("logradouro", "")
-        bairro = data.get("bairro", "")
-        uf = data.get("uf", "")
-        logging.info(f"ViaCEP utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
-
-def open_cep(cep):
-    time.sleep(2)
-    response = requests.get(f"https://opencep.com.br/api/cep/{cep}", timeout=5)
-    if response.status_code == 200:
-        data = response.json()
-        cidade = data.get("cidade", "")
-        rua = data.get("logradouro", "")
-        bairro = data.get("bairro", "")
-        uf = data.get("uf", "")
-        logging.info(f"OpenCEP utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        
-        
-        if not rua and not bairro:
-            logging.info(f"OpenCEP retornou apenas Cidade: {cidade}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
-
-# Função para consulta BrasilAPI
-def brasil_api(cep):
-    time.sleep(2)
-    response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
-    if response.status_code == 200:
-        data = response.json()
-        cidade = data.get("city", "")
-        rua = data.get("street", "")
-        bairro = data.get("neighborhood", "")
-        uf = data.get("state", "")
-        logging.info(f"BrasilAPI utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        
-       
-        if not rua and not bairro:
-            logging.info(f"BrasilAPI retornou apenas Cidade: {cidade}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
-
-
-def update_bitrix24_record(deal_id, cidade, rua, bairro, uf):
-    logging.info(f"Atualizando o Bitrix24 com Cidade: {cidade}, Rua: {rua}, Bairro: {bairro} UF: {uf} para o registro {deal_id}...")
-    url = f"{WEBHOOK_URL}crm.deal.update.json"
-
-    payload = {
-        'ID': deal_id,
-        'FIELDS': {
-            'UF_CRM_1731957897': bairro.upper() if bairro else '',
-            'UF_CRM_1731957878': rua.upper() if rua else '',
-            'UF_CRM_1731588487': cidade.upper(),
-            'UF_CRM_1731589190': uf.upper(),
+def update_card_bitrix(card_id, name_of_field, value):
+    url = f"{BASE_URL_API_BITRIX}/{PROFILE}/{CODIGO_BITRIX}/crm.deal.update"
+    data = {
+        'id': card_id,
+        'fields': {
+            name_of_field: value
         }
     }
+    if value == None:
+        print('⚠ A varivel value é nula ⚠')
+        return -1
 
-    try:
-        response = requests.post(url, json=payload, timeout=5)
-        logging.info(f"Resposta da API Bitrix24: {response.status_code} - {response.text}")
-        if response.status_code == 200:
-            logging.info(f"Registro {deal_id} atualizado com sucesso!")
-        else:
-            logging.error(f"Erro ao atualizar o registro no Bitrix24: {response.status_code} - {response.text}")
-    except requests.RequestException as e:
-        logging.error(f"Erro ao conectar ao Bitrix24: {e}")
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        print(f"Field '{name_of_field}' updated successfully.")
+    else:
+        print("Failed to update field.")
+        print(response.text)
 
-def get_number_from_bitrix(deal_id):
-    url = f"{WEBHOOK_URL}crm.deal.get.json"
-    params = {"ID": deal_id}
-
-    try: 
-        response = requests.get(url, params=params, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-
-        if "result" in data and data["result"]:
-            number = data["result"].get("UF_CRM_1700661252544", None)
-            if number:
-                logging.info(f"Campo UF_CRM_1700661252544 encontrado: {number}")
-                return number
-            else:
-                logging.error(f"Campo UF_CRM_1700661252544 não encontrado no negócio {deal_id}")
-                return None
-        else:
-            logging.error(f"Negócio {deal_id} não encontrado no Bitrix24")
-            return None
-
-    except requests.RequestException as e:
-        logging.error(f"Erro ao buscar negócio {deal_id} no Bitrix24: {e}")
-        return None
+def convert_for_gmt_minus_3(date_from_bitrix):
+    hour_obj = datetime.fromisoformat(date_from_bitrix)
+    hour_sub = hour_obj - timedelta(hours=6)
+    new_hour_formated = hour_sub.isoformat()
+    return new_hour_formated
     
+WORKFLOW_IDS = {
+    "workflow1": "1196", #primeiro boleto(1.1)
+    "workflow2": "1200", #primeiro boleto(1.2)
+    "workflow3": "1204", #segundo boleto(1.1)
+    "workflow4": "1206", #segundo boleto(1.2)
+    "workflow5": "1208", #terceiro boleto(1.1)
+    "workflow6": "1210", #terceiro boleto(1.2)
+    "workflow7": "1212", #quarto boleto(1.1)
+    "workflow8": "1214", #quarto boleto(1.2)
+    "workflow9": "1216", #quinto boleto(1.1)
+    "workflow10": "1218", #quinto boleto(1.2)
+    "workflow11": "1314", #workflow para o site
+    "workflow12": "1294", #workflow para a fila de ativos
+    "workflow13": "1390", #workflow para campo sem fuso horario ser atualizado. 
+    "workflow14": "1426", #workflow que muda o campo de Relatorio data. 
+    "workflow15": "1428" #workflow que muda o campo de Relatorio data/hora. 
+}
 
-def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, cep, number):
-    formatted_address = f"{rua}, {number}, {bairro}, {cidade} - {uf}, {cep}"
-    formatted_address = formatted_address.upper()
-    logging.info(f"Atualizando o campo EnederoUtiliza(API): com Cidade: {cidade}, Rua: {rua}, Bairro: {bairro} UF: {uf} para o registro {deal_id}...")
-    url = f"{WEBHOOK_URL}crm.deal.update.json"
+@app.route('/webhook/<workflow_name>', methods=['POST'])
+def start_workflow(workflow_name):
+    print("Webhook acionado!")  # Log to check if the endpoint is called
+    deal_id = request.args.get('deal_id')
 
-    payload = {
-        'ID': deal_id,
-        'FIELDS': {
-           'UF_CRM_1732711183': formatted_address
-        }
+    if not deal_id:
+        return jsonify({"error": "deal_id não fornecido"}), 400
+
+    # Get the workflow ID from the dictionary
+    workflow_id = WORKFLOW_IDS.get(workflow_name)
+    if not workflow_id:
+        return jsonify({"error": "Workflow não encontrado"}), 404
+
+    array = ["crm", "CCrmDocumentDeal", f"DEAL_{deal_id}"]
+    data = {
+        "TEMPLATE_ID": workflow_id,
+        "DOCUMENT_ID": array
     }
+
+    time.sleep(10)  # Consider removing or reducing this in production
     try:
-        response = requests.post(url, json=payload, timeout=5)
-        logging.info(f"Resposta da API Bitrix24: {response.status_code} - {response.text}")
-        if response.status_code == 200:
-            logging.info(f"Registro {deal_id} atualizado com sucesso!")
-        else:
-            logging.error(f"Erro ao atualizar o registro no Bitrix24: {response.status_code} - {response.text}")
-    except requests.RequestException as e:
-        logging.error(f"Erro ao conectar ao Bitrix24: {e}")
+        response = requests.post(BITRIX_WEBHOOK_URL, json=data)
+        response.raise_for_status()  # Raise an error for bad responses
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling Bitrix API: {e}")
+        return jsonify({"error": "Failed to start workflow", "details": str(e)}), 500
 
 
-
-@app.route('/atualizar_cidade_uf/<int:deal_id>/<string:cep>', methods=['POST'])
-def atualizar_cidade_uf(deal_id, cep):
+@app.route('/date-time-brazil-in-bitrix', methods=['POST'])
+def update_new_date():
+    deal_id = request.args.get('ID')
+    date_create = request.args.get('DATE_CREATE')
     try:
-        if not deal_id or not cep:
-            logging.error(f"Parâmetros inválidos: deal_id={deal_id}, cep={cep}")
-            return jsonify({"erro": "Parâmetros obrigatórios não fornecidos"}), 400
-        
-        number = get_number_from_bitrix(deal_id)
-
-        if not number:
-            logging.error(f"Não foi possível obter o campo UF_CRM_1700661252544 para o negócio {deal_id}")
-            return jsonify({"erro": "Campo 'number' não encontrado no negócio"}), 400
-
-        cidade, rua, bairro, uf = get_city_and_uf(cep)
-
-        if cidade and uf:
-            update_bitrix24_record(deal_id, cidade, rua, bairro, uf)
-            update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, cep, number)
-            
-            return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!"}), 200
-        else:
-            logging.error("Erro ao obter cidade e UF para o CEP!")
-            return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
-
-    except Exception as e:
-        logging.error(f"Erro inesperado: {e}")
-        return jsonify({"erro": f"Erro interno no servidor: {str(e)}"}), 500
-
-#rua, numero, bairro, cidade - estado, cep
+        formated_date = convert_for_gmt_minus_3(date_create)
+        update_card_bitrix(deal_id, 'UF_CRM_1731416690056', formated_date)
+    except requests.exceptions.RequestException as e:
+        print(f"Error update date field: {e}")
+        return jsonify({"error": f"Failed to update datetime in Bitrix for card: {deal_id}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7963)
