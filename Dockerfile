@@ -1,26 +1,20 @@
-# Use uma imagem base do Python
-FROM python:3.9
+# Passo 1: Escolher uma imagem base com Python
+FROM python:3.9-slim
 
-# Define o diretório de trabalho
+# Passo 2: Definir o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copia o arquivo de requisitos
-COPY requirements.txt .
+# Passo 3: Copiar o arquivo requirements.txt para o diretório de trabalho do container
+COPY requirements.txt /app/
 
-ENV PROFILE=${PROFILE}
-ENV BASE_URL_API_BITRIX=${BASE_URL_API_BITRIX}
-ENV CODIGO_BITRIX=${CODIGO_BITRIX}
-ENV PORT=${PORT}
-
-
-# Instala as dependências
+# Passo 4: Instalar as dependências do projeto
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o código da aplicação
-COPY . .
+# Passo 5: Copiar o código (main.py) para o diretório de trabalho do container
+COPY main.py /app/
 
-# Expõe a porta da aplicação
-EXPOSE 7963
+# Passo 6: Expôr a porta 5000 (a porta onde o Flask vai rodar)
+EXPOSE 7964
 
-# Comando para rodar a aplicação (ajustado para main.py)
+# Passo 7: Definir o comando para rodar o servidor Flask quando o container iniciar
 CMD ["python", "main.py"]
