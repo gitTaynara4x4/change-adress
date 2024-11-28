@@ -183,7 +183,6 @@ def atualizar_cidade_uf(deal_id, cep):
 
         if not number:
             logging.error(f"Não foi possível obter o campo UF_CRM_1700661252544 para o negócio {deal_id}")
-            return jsonify({"erro": "Campo 'number' não encontrado no negócio"}), 400
 
         cidade, rua, bairro, uf = get_city_and_uf(cep)
 
