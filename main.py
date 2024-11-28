@@ -26,7 +26,7 @@ def get_city_and_uf(cep):
     
     apis = [
         {"nome": "ViaCEP", "url": f"https://viacep.com.br/ws/{cep}/json/", "funcao": via_cep},
-        {"nome": "OpenCEP", "url": f"https://opencep.com.br/api/cep/{cep}", "funcao": open_cep},
+        {"nome": "OpenCEP", "url": f"https://opencep.com/v1/{cep}.json", "funcao": open_cep},
         {"nome": "BrasilAPI", "url": f"https://brasilapi.com.br/api/cep/v2/{cep}", "funcao": brasil_api}
     ]
 
@@ -37,65 +37,63 @@ def get_city_and_uf(cep):
         futures = [executor.submit(api["funcao"], cep) for api in apis]
         for future in as_completed(futures):
             try:
-                cidade, rua, bairro, uf = future.result()
+                cep, cidade, rua, bairro, uf = future.result()
                 if cidade and uf:  
-                    logging.info(f"Consulta bem-sucedida com os dados: Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
+                    logging.info(f"Consulta bem-sucedida com os dados: CEP: {cep}, Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
                     
-                    return cidade, rua, bairro, uf
+                    return cep, cidade, rua, bairro, uf
             except Exception as e:
                 logging.error(f"Erro ao processar a consulta: {e}")
 
     
     logging.error(f"Erro ao consultar o CEP nas APIs.")
-    return None, None, None, None
+    return None, None, None, None, None
 
 
 def via_cep(cep):
     response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
     if response.status_code == 200 and "erro" not in response.json():
         data = response.json()
+        ceptrue = data.get("cep", "")
         cidade = data.get("localidade", "")
         rua = data.get("logradouro", "")
         bairro = data.get("bairro", "")
         uf = data.get("uf", "")
-        logging.info(f"ViaCEP utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
+        logging.info(f"ViaCEP utilizado - CEP: {cep}, Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
+        return ceptrue, cidade, rua, bairro, uf
+    return None, None, None, None, None
 
 def open_cep(cep):
     time.sleep(2)
-    response = requests.get(f"https://opencep.com.br/api/cep/{cep}", timeout=5)
+    response = requests.get(f"https://opencep.com/v1/{cep}.json", timeout=5)
     if response.status_code == 200:
         data = response.json()
+        ceptrue = data.get("cep", "")
         cidade = data.get("cidade", "")
         rua = data.get("logradouro", "")
         bairro = data.get("bairro", "")
         uf = data.get("uf", "")
-        logging.info(f"OpenCEP utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        
-        
+        logging.info(f"OpenCEP utilizado - CEP: {cep}, Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
         if not rua and not bairro:
             logging.info(f"OpenCEP retornou apenas Cidade: {cidade}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
+        return ceptrue, cidade, rua, bairro, uf
+    return None, None, None, None, None
 
-# Função para consulta BrasilAPI
 def brasil_api(cep):
     time.sleep(2)
     response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
     if response.status_code == 200:
         data = response.json()
+        ceptrue = data.get("cep", "")
         cidade = data.get("city", "")
         rua = data.get("street", "")
         bairro = data.get("neighborhood", "")
         uf = data.get("state", "")
-        logging.info(f"BrasilAPI utilizado - Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-        
-       
+        logging.info(f"BrasilAPI utilizado - CEP: {cep}, Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
         if not rua and not bairro:
             logging.info(f"BrasilAPI retornou apenas Cidade: {cidade}, UF: {uf}")
-        return cidade, rua, bairro, uf
-    return None, None, None, None
+        return ceptrue, cidade, rua, bairro, uf
+    return None, None, None, None, None
 
 
 def update_bitrix24_record(deal_id, cidade, rua, bairro, uf):
@@ -148,10 +146,10 @@ def get_number_from_bitrix(deal_id):
         return None
     
 
-def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, cep, number):
-    formatted_address = f"{rua}, {number}, {bairro}, {cidade} - {uf}, {cep}"
+def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number):
+    formatted_address = f"{rua}, {ceptrue}, {bairro}, {cidade} - {uf}, {number}"
     formatted_address = formatted_address.upper()
-    logging.info(f"Atualizando o campo EnederoUtiliza(API): com Cidade: {cidade}, Rua: {rua}, Bairro: {bairro} UF: {uf} para o registro {deal_id}...")
+    logging.info(f"Atualizando o campo EnederoUtiliza(API): CEP: {ceptrue}, com Cidade: {cidade}, Rua: {rua}, Bairro: {bairro} UF: {uf} para o registro {deal_id}...")
     url = f"{WEBHOOK_URL}crm.deal.update.json"
 
     payload = {
@@ -184,11 +182,12 @@ def atualizar_cidade_uf(deal_id, cep):
         if not number:
             logging.error(f"Não foi possível obter o campo UF_CRM_1700661252544 para o negócio {deal_id}")
 
-        cidade, rua, bairro, uf = get_city_and_uf(cep)
+
+        ceptrue, cidade, rua, bairro, uf = get_city_and_uf(cep)
 
         if cidade and uf:
             update_bitrix24_record(deal_id, cidade, rua, bairro, uf)
-            update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, cep, number)
+            update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
             
             return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!"}), 200
         else:
@@ -200,6 +199,5 @@ def atualizar_cidade_uf(deal_id, cep):
         return jsonify({"erro": f"Erro interno no servidor: {str(e)}"}), 500
 
 #rua, numero, bairro, cidade - estado, cep
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7963)
