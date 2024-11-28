@@ -54,7 +54,7 @@ def via_cep(cep):
     response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
     if response.status_code == 200 and "erro" not in response.json():
         data = response.json()
-        ceptrue = data.get("cep", "")
+        ceptrue = data.get("cep", "").replace("-", "")
         cidade = data.get("localidade", "")
         rua = data.get("logradouro", "")
         bairro = data.get("bairro", "")
@@ -68,7 +68,7 @@ def open_cep(cep):
     response = requests.get(f"https://opencep.com/v1/{cep}.json", timeout=5)
     if response.status_code == 200:
         data = response.json()
-        ceptrue = data.get("cep", "")
+        ceptrue = data.get("cep", "").replace("-", "")
         cidade = data.get("cidade", "")
         rua = data.get("logradouro", "")
         bairro = data.get("bairro", "")
@@ -84,7 +84,7 @@ def brasil_api(cep):
     response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
     if response.status_code == 200:
         data = response.json()
-        ceptrue = data.get("cep", "")
+        ceptrue = data.get("cep", "").replace("-", "")
         cidade = data.get("city", "")
         rua = data.get("street", "")
         bairro = data.get("neighborhood", "")
@@ -168,6 +168,41 @@ def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number):
     except requests.RequestException as e:
         logging.error(f"Erro ao conectar ao Bitrix24: {e}")
 
+
+@app.route('/adress_full/<int:deal_id>/<string:cep>', methods=['POST'])
+def adress_full(deal_id, cep):
+    try:
+        if not deal_id or not cep:
+            logging.error(f"Parâmetros inválidos: deal_id={deal_id}, cep={cep}")
+            return jsonify({"erro": "Parâmetros obrigatórios não fornecidos"}), 400
+        
+        # Obtém o número do Bitrix24
+        number = get_number_from_bitrix(deal_id)
+
+        if not number:
+            logging.error(f"O campo 'number' não está preenchido para o negócio {deal_id}")
+            return jsonify({"erro": "O número do endereço deve ser preenchido antes de continuar"}), 400
+
+        # Consulta os dados do CEP
+        ceptrue, cidade, rua, bairro, uf = get_city_and_uf(cep)
+
+        if not (cidade and uf):
+            logging.error("Erro ao obter cidade e UF para o CEP!")
+            return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
+
+        # Formata o endereço com o número obtido
+        formatted_address = f"{rua}, {ceptrue}, {bairro}, {cidade} - {uf}, {number}".upper()
+        logging.info(f"Endereço formatado: {formatted_address}")
+
+        # Atualiza o campo de endereço no Bitrix24
+        update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
+
+        logging.info(f"Registro {deal_id} atualizado com o endereço formatado: {formatted_address}")
+        return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!", "formatted_address": formatted_address}), 200
+
+    except Exception as e:
+        logging.error(f"Erro inesperado: {e}")
+        return jsonify({"erro": f"Erro interno no servidor: {str(e)}"}), 500
 
 
 @app.route('/atualizar_cidade_uf/<int:deal_id>/<string:cep>', methods=['POST'])
