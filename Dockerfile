@@ -7,6 +7,13 @@ WORKDIR /app
 # Passo 3: Copiar o arquivo requirements.txt para o diretório de trabalho do container
 COPY requirements.txt /app/
 
+
+ENV PROFILE=${PROFILE}
+ENV BASE_URL_API_BITRIX=${BASE_URL_API_BITRIX}
+ENV CODIGO_BITRIX=${CODIGO_BITRIX}
+ENV PORT=${PORT}
+
+
 # Passo 4: Instalar as dependências do projeto
 RUN pip install --no-cache-dir -r requirements.txt
 
