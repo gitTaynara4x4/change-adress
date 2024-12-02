@@ -1,12 +1,12 @@
 import requests
+import os
+from dotenv import load_dotenv
 import time
 import random
 from flask import Flask, jsonify, request
 import logging
-import os
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dotenv import load_dotenv
 
 app = Flask(__name__)
 
