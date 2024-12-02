@@ -11,14 +11,12 @@ COPY requirements.txt /app/
 ENV PROFILE=${PROFILE}
 ENV BASE_URL_API_BITRIX=${BASE_URL_API_BITRIX}
 ENV CODIGO_BITRIX=${CODIGO_BITRIX}
-ENV PORT=${PORT}
-
 
 # Passo 4: Instalar as dependências do projeto
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Passo 5: Copiar o código (main.py) para o diretório de trabalho do container
-COPY main.py /app/
+COPY . .
 
 # Passo 6: Expôr a porta 5000 (a porta onde o Flask vai rodar)
 EXPOSE 7963
