@@ -5,11 +5,20 @@ from flask import Flask, jsonify, request
 import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 
 
-WEBHOOK_URL = "https://marketingsolucoes.bitrix24.com.br/rest/35002/7a2nuej815yjx5bg/"
+load_dotenv()
+CODIGO_BITRIX = os.getenv('CODIGO_BITRIX')
+CODIGO_BITRIX_STR = os.getenv('CODIGO_BITRIX_STR')
+PROFILE = os.getenv('PROFILE')
+BASE_URL_API_BITRIX = os.getenv('BASE_URL_API_BITRIX')
+
+
+
+WEBHOOK_URL = f"{BASE_URL_API_BITRIX}/{PROFILE}/{CODIGO_BITRIX}/"
 
 
 logging.basicConfig(
