@@ -246,4 +246,4 @@ def atualizar_cidade_uf(deal_id, cep):
 
 #rua, numero, bairro, cidade - estado, cep
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=7963)
+    app.run(host='0.0.0.0', port=3489)
