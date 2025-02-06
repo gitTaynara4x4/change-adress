@@ -19,7 +19,7 @@ BASE_URL_API_BITRIX = os.getenv('BASE_URL_API_BITRIX')
 
 
 
-WEBHOOK_URL = f"{BASE_URL_API_BITRIX}/{PROFILE}/{CODIGO_BITRIX}/"
+WEBHOOK_URL = f"https://marketingsolucoes.bitrix24.com.br/rest/5332/y3pi0qmmwpc07vlx/"
 
 
 logging.basicConfig(
