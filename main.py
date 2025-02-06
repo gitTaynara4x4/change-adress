@@ -14,7 +14,7 @@ app = Flask(__name__)
 load_dotenv()
 
 
-WEBHOOK_URL = f"https://marketingsolucoes.bitrix24.com.br/rest/5332/y3pi0qmmwpc07vlx/"
+WEBHOOK_URL = f"https://marketingsolucoes.bitrix24.com.br/rest/5332/zlxwmf2uqcix6f7u/"
 
 
 logging.basicConfig(
