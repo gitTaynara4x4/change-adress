@@ -61,6 +61,7 @@ def get_city_and_uf(cep):
 
 
 def via_cep(cep):
+    time.sleep(4)
     response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
     if response.status_code == 200 and "erro" not in response.json():
         data = response.json()
@@ -74,7 +75,7 @@ def via_cep(cep):
     return None, None, None, None, None
 
 def open_cep(cep):
-    time.sleep(2)
+    time.sleep(4)
     response = requests.get(f"https://opencep.com/v1/{cep}.json", timeout=5)
     if response.status_code == 200:
         data = response.json()
@@ -90,7 +91,7 @@ def open_cep(cep):
     return None, None, None, None, None
 
 def brasil_api(cep):
-    time.sleep(2)
+    time.sleep(4)
     response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
     if response.status_code == 200:
         data = response.json()
