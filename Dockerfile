@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Passo 6: Expôr a porta 5000 (a porta onde o Flask vai rodar)
-EXPOSE 7963
+EXPOSE 3489
 
 # Passo 7: Definir o comando para rodar o servidor Flask quando o container iniciar
 CMD ["python", "main.py"]
