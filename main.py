@@ -13,9 +13,9 @@ app = Flask(__name__)
 
 load_dotenv()
 
-WEBHOOK_BITRIX = os.getenv('webhook_url')
+WEBHOOK_BITRIX = os.getenv('WEBHOOK_BITRIX')
 
-WEBHOOK_URL = f"{WEBHOOK_URL}"
+WEBHOOK_URL = f"{WEBHOOK_BITRIX}"
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
