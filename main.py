@@ -229,7 +229,6 @@ def atualizar_cidade_uf(deal_id, cep):
         if cidade and uf:
             update_bitrix24_record(deal_id, cidade, rua, bairro, uf)
             update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
-            
             return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!"}), 200
         else:
             logging.error("Erro ao obter cidade e UF para o CEP!")
@@ -239,6 +238,33 @@ def atualizar_cidade_uf(deal_id, cep):
         logging.error(f"Erro inesperado: {e}")
         return jsonify({"erro": f"Erro interno no servidor: {str(e)}"}), 500
 
+# Rota recebe id de parametro
+@app.route('/cidade_formatada_uf/<int:deal_id>', methods=['POST'])
+def cidade_formatada_uf(deal_id):
+# A partir do id, voce faz uma req na API da Bitrix que retorna as infos -- crm.deal.get?ID=
+    print("OLA")
+    res = requests.get(f"{WEBHOOK_URL}crm.deal.get?ID={deal_id}")
+    print("OLA2")
+
+# A partir das infos desse card, voce pega o CEP
+    card_cep = res.json()["result"]["UF_CRM_1700661314351"]
+    card_cep = card_cep.replace(",", "")
+
+    print("OLA3")
+# Dwpois voce faz uma req para o VIACEP -- url= https://viacep.com.br/ws/{{  cep  }}/json/
+    data = requests.get(f"https://viacep.com.br/ws/{card_cep}/json/")
+    print(data.json())
+    localidade = data.json()["localidade"]
+    uf = data.json()["uf"]
+# Depois pega o campo localidade e faz um update pela url -- crm.deal.update?ID={{ID}}&FIELDS[UF_CRM_1731588487]={{localidade}}
+    url_update = f"{WEBHOOK_URL}crm.deal.update?ID={deal_id}&FIELDS[UF_CRM_1731588487]={localidade.upper()}&FIELDS[UF_CRM_1731589190]={uf.upper()}"
+
+    requests.post(url_update)
+
+    return {
+        "message": f"Card de id {deal_id} atualizado!" 
+    }, 200
+            
 #rua, numero, bairro, cidade - estado, cep
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1474)
