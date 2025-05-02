@@ -176,7 +176,44 @@ def update_bitrix24_record(deal_id, cidade, rua, bairro, uf):
             'UF_CRM_1698688252221': rua.upper() if rua else '',
             'UF_CRM_1731588487': cidade.upper(),
             'UF_CRM_1731589190': uf.upper(),
+            ''
         }
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=5)
+        logging.info(f"Resposta da API Bitrix24: {response.status_code} - {response.text}")
+        if response.status_code == 200:
+            logging.info(f"Registro {deal_id} atualizado com sucesso!")
+        else:
+            logging.error(f"Erro ao atualizar o registro no Bitrix24: {response.status_code} - {response.text}")
+    except requests.RequestException as e:
+        logging.error(f"Erro ao conectar ao Bitrix24: {e}")
+
+def update_bitrix24_record(deal_id, cidade=None, rua=None, bairro=None, uf=None, mensagem_erro=None):
+    logging.info(f"Atualizando o Bitrix24 para o registro {deal_id}...")
+
+    url = f"{WEBHOOK_URL}crm.deal.update.json"
+
+    fields = {}
+
+    if bairro:
+        fields['UF_CRM_1700661287551'] = bairro.upper()
+    if rua:
+        fields['UF_CRM_1698688252221'] = rua.upper()
+    if cidade:
+        fields['UF_CRM_1731588487'] = cidade.upper()
+    if uf:
+        fields['UF_CRM_1731589190'] = uf.upper()
+    if mensagem_erro:
+        fields['UF_CRM_1700661314351'] = mensagem_erro.upper()
+    else:
+        # Limpa o campo de erro, se necessário
+        fields['UF_CRM_1700661314351'] = ''
+
+    payload = {
+        'ID': deal_id,
+        'FIELDS': fields
     }
 
     try:
