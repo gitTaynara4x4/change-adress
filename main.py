@@ -10,6 +10,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 
+#Consulta sequencial de CEP (fallback) usando BrasilAPI, ViaCEP e OpenCEP.
+
+#Atualização de dados no Bitrix24 via webhook.
+
+#Montagem e envio de endereço formatado.
+
+#Uso de cache com lru_cache para evitar consultas repetidas.
+
+#Boas práticas com logging.
+
 
 load_dotenv()
 
@@ -22,41 +32,94 @@ logging.basicConfig(
     level=logging.INFO  
 )
 
+def brasil_api(cep):
+    try:
+        response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}")
+        if response.status_code == 200:
+            data = response.json()
+            if "city" in data and "state" in data:
+                ceptrue = data.get("cep", "").replace("-", "")
+                cidade = data.get("city", "")
+                rua = data.get("street", "")
+                bairro = data.get("neighborhood", "")
+                uf = data.get("state", "")
+                logging.info(f"BrasilAPI utilizado - {ceptrue}, {cidade}, {rua}, {bairro}, {uf}")
+                return ceptrue, cidade, rua, bairro, uf
+            else:
+                logging.warning(f"BrasilAPI respondeu mas faltam dados obrigatórios para o CEP {cep}")
+    except requests.RequestException as e:
+        logging.error(f"Erro na consulta BrasilAPI: {e}")
+
+    return None, None, None, None, None
+
+def via_cep(cep):
+    try:
+        response = requests.get(f"https://viacep.com.br/ws/{cep}/json/")
+        if response.status_code == 200:
+            data = response.json()
+            if "erro" not in data and "localidade" in data and "uf" in data:
+                ceptrue = data.get("cep", "").replace("-", "")
+                cidade = data.get("localidade", "")
+                rua = data.get("logradouro", "")
+                bairro = data.get("bairro", "")
+                uf = data.get("uf", "")
+                logging.info(f"ViaCEP utilizado - {ceptrue}, {cidade}, {rua}, {bairro}, {uf}")
+                return ceptrue, cidade, rua, bairro, uf
+            else:
+                logging.warning(f"ViaCEP respondeu mas faltam dados obrigatórios para o CEP {cep}")
+    except requests.RequestException as e:
+        logging.error(f"Erro na consulta ViaCEP: {e}")
+
+    return None, None, None, None, None
+
+def open_cep(cep):
+    try:
+        response = requests.get(f"https://opencep.com/v1/{cep}.json")
+        if response.status_code == 200:
+            data = response.json()
+            if "cidade" in data and "uf" in data:
+                ceptrue = data.get("cep", "").replace("-", "")
+                cidade = data.get("cidade", "")
+                rua = data.get("logradouro", "")
+                bairro = data.get("bairro", "")
+                uf = data.get("uf", "")
+                logging.info(f"OpenCEP utilizado - {ceptrue}, {cidade}, {rua}, {bairro}, {uf}")
+                return ceptrue, cidade, rua, bairro, uf
+            else:
+                logging.warning(f"OpenCEP respondeu mas faltam dados obrigatórios para o CEP {cep}")
+    except requests.RequestException as e:
+        logging.error(f"Erro na consulta OpenCEP: {e}")
+
+    return None, None, None, None, None
+
 
 @lru_cache(maxsize=100)
 def get_city_and_uf(cep):
     logging.info(f"Consultando o CEP: {cep}")
-    cep = cep.strip().replace("-", "")  
+    cep = cep.strip().replace("-", "")
 
-    
-    apis = [
-        {"nome": "ViaCEP", "url": f"https://viacep.com.br/ws/{cep}/json/", "funcao": via_cep},
-        {"nome": "OpenCEP", "url": f"https://opencep.com/v1/{cep}.json", "funcao": open_cep},
-        {"nome": "BrasilAPI", "url": f"https://brasilapi.com.br/api/cep/v2/{cep}", "funcao": brasil_api}
+    apis_em_ordem = [
+        {"nome": "BrasilAPI", "funcao": brasil_api},
+        {"nome": "ViaCEP", "funcao": via_cep},
+        {"nome": "OpenCEP", "funcao": open_cep},
     ]
 
+    for api in apis_em_ordem:
+        try:
+            ceptrue, cidade, rua, bairro, uf = api["funcao"](cep)
+            if cidade and uf:
+                logging.info(f"{api['nome']} retornou dados válidos: {ceptrue}, {cidade}, {rua}, {bairro}, {uf}")
+                return ceptrue, cidade, rua, bairro, uf
+        except Exception as e:
+            logging.warning(f"Erro ao consultar {api['nome']} para o CEP {cep}: {e}")
     
-    random.shuffle(apis)
-
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(api["funcao"], cep) for api in apis]
-        for future in as_completed(futures):
-            try:
-                cep, cidade, rua, bairro, uf = future.result()
-                if cidade and uf:  
-                    logging.info(f"Consulta bem-sucedida com os dados: CEP: {cep}, Cidade: {cidade}, Rua: {rua}, Bairro: {bairro}, UF: {uf}")
-                    
-                    return cep, cidade, rua, bairro, uf
-            except Exception as e:
-                logging.error(f"Erro ao processar a consulta: {e}")
-
-    
-    logging.error(f"Erro ao consultar o CEP nas APIs.")
+    logging.error("Todas as APIs falharam. CEP inválido.")
     return None, None, None, None, None
 
 
+
 def via_cep(cep):
-    time.sleep(4)
+    time.sleep(2)
     response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
     if response.status_code == 200 and "erro" not in response.json():
         data = response.json()
@@ -70,7 +133,7 @@ def via_cep(cep):
     return None, None, None, None, None
 
 def open_cep(cep):
-    time.sleep(4)
+    time.sleep(2)
     response = requests.get(f"https://opencep.com/v1/{cep}.json", timeout=5)
     if response.status_code == 200:
         data = response.json()
@@ -86,7 +149,7 @@ def open_cep(cep):
     return None, None, None, None, None
 
 def brasil_api(cep):
-    time.sleep(4)
+    time.sleep(2)
     response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
     if response.status_code == 200:
         data = response.json()
@@ -182,25 +245,20 @@ def adress_full(deal_id, cep):
             logging.error(f"Parâmetros inválidos: deal_id={deal_id}, cep={cep}")
             return jsonify({"erro": "Parâmetros obrigatórios não fornecidos"}), 400
         
-        # Obtém o número do Bitrix24
         number = get_number_from_bitrix(deal_id)
 
         if not number:
             logging.error(f"O campo 'number' não está preenchido para o negócio {deal_id}")
             return jsonify({"erro": "O número do endereço deve ser preenchido antes de continuar"}), 400
 
-        # Consulta os dados do CEP
         ceptrue, cidade, rua, bairro, uf = get_city_and_uf(cep)
 
         if not (cidade and uf):
-            logging.error("Erro ao obter cidade e UF para o CEP!")
-            return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
+            logging.error("CEP inválido: não foi possível obter cidade e UF para o CEP.")
+            return jsonify({"erro": "CEP INVÁLIDO"}), 400
 
-        # Formata o endereço com o número obtido
         formatted_address = f"{rua}, {ceptrue}, {bairro}, {cidade} - {uf}, {number}".upper()
         logging.info(f"Endereço formatado: {formatted_address}")
-
-        # Atualiza o campo de endereço no Bitrix24
         update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
 
         logging.info(f"Registro {deal_id} atualizado com o endereço formatado: {formatted_address}")
@@ -231,40 +289,44 @@ def atualizar_cidade_uf(deal_id, cep):
             update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
             return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!"}), 200
         else:
-            logging.error("Erro ao obter cidade e UF para o CEP!")
-            return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
+            logging.error("CEP inválido: não foi possível obter cidade e UF para o CEP.")
+            return jsonify({"erro": "CEP INVÁLIDO"}), 400
 
     except Exception as e:
         logging.error(f"Erro inesperado: {e}")
         return jsonify({"erro": f"Erro interno no servidor: {str(e)}"}), 500
 
-# Rota recebe id de parametro
 @app.route('/cidade_formatada_uf/<int:deal_id>', methods=['POST'])
 def cidade_formatada_uf(deal_id):
-# A partir do id, voce faz uma req na API da Bitrix que retorna as infos -- crm.deal.get?ID=
-    print("OLA")
-    res = requests.get(f"{WEBHOOK_URL}crm.deal.get?ID={deal_id}")
-    print("OLA2")
+    try:
+        res = requests.get(f"{WEBHOOK_URL}crm.deal.get?ID={deal_id}")
+        card_cep = res.json()["result"].get("UF_CRM_1700661314351", "")
+        card_cep = ''.join(filter(str.isdigit, card_cep))  # remove tudo que não for número
 
-# A partir das infos desse card, voce pega o CEP
-    card_cep = res.json()["result"]["UF_CRM_1700661314351"]
-    card_cep = card_cep.replace(",", "")
+        if len(card_cep) != 8:
+            logging.error(f"CEP mal formatado ou incompleto para o negócio {deal_id}: '{card_cep}'")
+            return jsonify({"erro": "CEP inválido. Certifique-se de preencher um CEP com 8 dígitos numéricos."}), 400
 
-    print("OLA3")
-# Dwpois voce faz uma req para o VIACEP -- url= https://viacep.com.br/ws/{{  cep  }}/json/
-    data = requests.get(f"https://viacep.com.br/ws/{card_cep}/json/")
-    print(data.json())
-    localidade = data.json()["localidade"]
-    uf = data.json()["uf"]
-# Depois pega o campo localidade e faz um update pela url -- crm.deal.update?ID={{ID}}&FIELDS[UF_CRM_1731588487]={{localidade}}
-    url_update = f"{WEBHOOK_URL}crm.deal.update?ID={deal_id}&FIELDS[UF_CRM_1731588487]={localidade.upper()}&FIELDS[UF_CRM_1731589190]={uf.upper()}"
 
-    requests.post(url_update)
+        if not card_cep:
+            logging.error(f"O campo de CEP (UF_CRM_1700661314351) está vazio para o negócio {deal_id}")
+            return jsonify({"erro": "Campo de CEP vazio"}), 400
 
-    return {
-        "message": f"Card de id {deal_id} atualizado!" 
-    }, 200
+        ceptrue, cidade, rua, bairro, uf = get_city_and_uf(card_cep)
+
+        if cidade and uf:
+            url_update = f"{WEBHOOK_URL}crm.deal.update?ID={deal_id}&FIELDS[UF_CRM_1731588487]={cidade.upper()}&FIELDS[UF_CRM_1731589190]={uf.upper()}"
+            requests.post(url_update)
+            return jsonify({"sucesso": f"Card de id {deal_id} atualizado!"}), 200
+        else:
+            logging.error("CEP inválido: não foi possível obter cidade e UF.")
+            return jsonify({"erro": "CEP INVÁLIDO"}), 400
+
+    except Exception as e:
+        logging.error(f"Erro inesperado ao atualizar cidade/UF: {e}")
+        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
+
             
 #rua, numero, bairro, cidade - estado, cep
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=1474)
+    app.run(host='0.0.0.0', debug=True)
