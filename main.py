@@ -176,7 +176,6 @@ def update_bitrix24_record(deal_id, cidade, rua, bairro, uf):
             'UF_CRM_1698688252221': rua.upper() if rua else '',
             'UF_CRM_1731588487': cidade.upper(),
             'UF_CRM_1731589190': uf.upper(),
-            ''
         }
     }
 
