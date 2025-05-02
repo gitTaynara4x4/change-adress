@@ -275,12 +275,11 @@ def atualizar_cidade_uf(deal_id, cep):
         if not deal_id or not cep:
             logging.error(f"Parâmetros inválidos: deal_id={deal_id}, cep={cep}")
             return jsonify({"erro": "Parâmetros obrigatórios não fornecidos"}), 400
-        
+
         number = get_number_from_bitrix(deal_id)
 
         if not number:
             logging.error(f"Não foi possível obter o campo UF_CRM_1700661252544 para o negócio {deal_id}")
-
 
         ceptrue, cidade, rua, bairro, uf = get_city_and_uf(cep)
 
@@ -289,6 +288,8 @@ def atualizar_cidade_uf(deal_id, cep):
             update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, number, ceptrue)
             return jsonify({"sucesso": f"Registro {deal_id} atualizado com sucesso!"}), 200
         else:
+        # Atualiza o Bitrix com mensagem de erro no campo apropriado
+            update_bitrix24_record(deal_id, mensagem_erro="CEP INVÁLIDO")
             logging.error("CEP inválido: não foi possível obter cidade e UF para o CEP.")
             return jsonify({"erro": "CEP INVÁLIDO"}), 400
 
