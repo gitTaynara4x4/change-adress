@@ -136,10 +136,10 @@ def adress_full(deal_id, cep):
         if not (cidade and uf):
             return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
 
-        update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number)
+        update_enderecoutilizado(deal_id, number, rua, bairro, uf, ceptrue, cidade)
         return jsonify({
             "sucesso": f"Registro {deal_id} atualizado com sucesso!",
-            "formatted_address": f"{rua}, {ceptrue}, {bairro}, {cidade} - {uf}, {number}".upper()
+            "formatted_address": f"{rua}, {ceptrue}, {bairro}, {number} - {uf}, {cidade}".upper()
         }), 200
 
     except Exception as e:
@@ -172,6 +172,11 @@ def cidade_formatada_uf(deal_id):
     url_update = f"{WEBHOOK_URL}crm.deal.update?ID={deal_id}&FIELDS[UF_CRM_1731588487]={localidade.upper()}&FIELDS[UF_CRM_1731589190]={uf.upper()}"
     requests.post(url_update)
     return {"message": f"Card de id {deal_id} atualizado!"}, 200
+
+
+            
+#rua, numero, bairro, cidade - estado, cep
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1474)
