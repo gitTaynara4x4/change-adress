@@ -108,7 +108,7 @@ def get_number_from_bitrix(deal_id):
         return None
 
 def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number):
-    endereco = f"{rua}, {ceptrue}, {bairro}, {cidade} - {uf}, {number}".upper()
+    endereco = f"{rua}, {ceptrue}, {bairro}, {number} - {uf}, {cidade}".upper()
     url = f"{WEBHOOK_URL}crm.deal.update.json"
     payload = {
         'ID': deal_id,
