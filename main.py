@@ -51,6 +51,7 @@ def get_city_and_uf(cep, deal_id=None):
     return None, None, None, None, None
 
 def via_cep(cep):
+    logging.info(f"➡️  Tentando consulta na ViaCEP: {cep}")
     time.sleep(1)
     response = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
     if response.status_code == 200 and "erro" not in response.json():
@@ -59,6 +60,7 @@ def via_cep(cep):
     return None, None, None, None, None
 
 def open_cep(cep):
+    logging.info(f"➡️  Tentando consulta na OpenCEP: {cep}")
     time.sleep(1)
     response = requests.get(f"https://opencep.com/v1/{cep}.json", timeout=5)
     if response.status_code == 200:
@@ -67,12 +69,14 @@ def open_cep(cep):
     return None, None, None, None, None
 
 def brasil_api(cep):
+    logging.info(f"➡️  Tentando consulta na BrasilAPI: {cep}")
     time.sleep(1)
     response = requests.get(f"https://brasilapi.com.br/api/cep/v2/{cep}", timeout=5)
     if response.status_code == 200:
         data = response.json()
         return data.get("cep", "").replace("-", ""), data.get("city", ""), data.get("street", ""), data.get("neighborhood", ""), data.get("state", "")
     return None, None, None, None, None
+
 
 def update_bitrix24_record(deal_id, cidade, rua, bairro, uf):
     url = f"{WEBHOOK_URL}crm.deal.update.json"
