@@ -108,7 +108,7 @@ def get_number_from_bitrix(deal_id):
         return None
 
 def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number):
-    endereco = f"{rua}, {ceptrue}, {bairro}, {number} - {uf}, {cidade}".upper()
+    endereco = f"{rua}, {number}, {bairro}, {cidade} - {uf}, {ceptrue}".upper()
     url = f"{WEBHOOK_URL}crm.deal.update.json"
     payload = {
         'ID': deal_id,
@@ -139,7 +139,7 @@ def adress_full(deal_id, cep):
         update_enderecoutilizado(deal_id, number, rua, bairro, uf, ceptrue, cidade)
         return jsonify({
             "sucesso": f"Registro {deal_id} atualizado com sucesso!",
-            "formatted_address": f"{rua}, {ceptrue}, {bairro}, {number} - {uf}, {cidade}".upper()
+            "formatted_address": f"{rua}, {number}, {bairro}, {cidade} - {uf}, {ceptrue}".upper()
         }), 200
 
     except Exception as e:
