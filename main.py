@@ -148,6 +148,7 @@ def adress_full(deal_id, cep):
 
 @app.route('/atualizar_cidade_uf/<int:deal_id>/<string:cep>', methods=['POST'])
 def atualizar_cidade_uf(deal_id, cep):
+    cep = cep.strip()
     try:
         number = get_number_from_bitrix(deal_id)
         ceptrue, cidade, rua, bairro, uf = get_city_and_uf(cep, deal_id=deal_id)
