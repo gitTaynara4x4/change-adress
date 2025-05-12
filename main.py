@@ -106,7 +106,7 @@ def get_number_from_bitrix(deal_id):
     except Exception as e:
         logging.error(f"Erro ao buscar negócio {deal_id}: {e}")
         return None
-
+#rua, numero, bairro, cidade - estado, cep
 def update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number):
     endereco = f"{rua}, {number}, {bairro}, {cidade} - {uf}, {ceptrue}".upper()
     url = f"{WEBHOOK_URL}crm.deal.update.json"
@@ -136,11 +136,12 @@ def adress_full(deal_id, cep):
         if not (cidade and uf):
             return jsonify({"erro": "Não foi possível obter dados para o CEP"}), 400
 
-        update_enderecoutilizado(deal_id, number, rua, bairro, uf, ceptrue, cidade)
+        update_enderecoutilizado(deal_id, cidade, rua, bairro, uf, ceptrue, number)
         return jsonify({
             "sucesso": f"Registro {deal_id} atualizado com sucesso!",
             "formatted_address": f"{rua}, {number}, {bairro}, {cidade} - {uf}, {ceptrue}".upper()
         }), 200
+#rua, numero, bairro, cidade - estado, cep
 
     except Exception as e:
         logging.error(f"Erro: {e}")
